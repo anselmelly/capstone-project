@@ -1,0 +1,318 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Aug 15 14:42:25 2026
+
+Group Members
+Lewis Munyi
+Ansel Melly
+Ruth Kwamboka
+Ivy Managene
+Josiah Wandera
+"""
+
+
+# ----- FUNCTIONS -----
+
+import csv
+
+def load_transactions():
+    """Loads the transaction dataset with proper type casting."""
+    with open('cap-data.csv', 'r', encoding='utf-8-sig') as f:
+        reader = csv.DictReader(f)
+        data = []
+        for row in reader:
+            # Strip the BOM from keys (just in case)
+            row = {k.lstrip('\ufeff'): v for k, v in row.items()}
+            
+            # Cast numeric fields
+            row["amount_kes"] = float(row["amount_kes"])
+            row["budget_limit_kes"] = float(row["budget_limit_kes"])
+            
+            # Optional: strip whitespace from all string values
+            for key in row:
+                if isinstance(row[key], str):
+                    row[key] = row[key].strip()
+            
+            data.append(row)
+    return data
+
+def validate_transaction(record):
+    reasons = []
+
+    # Validate transaction_type
+    tx_type = record.get("transaction_type", "").strip()
+    if tx_type not in ("Income", "Expense"):
+        reasons.append(f"unrecognized transaction_type: '{tx_type}'")
+
+    # Validate amount_kes
+    try:
+        amount = float(record.get("amount_kes", 0))
+        if amount <= 0:
+            reasons.append("amount must be greater than zero")
+    except (ValueError, TypeError):
+        reasons.append("amount must be numeric")
+
+    # Category required for Expenses
+    category = record.get("category", "").strip()
+    if tx_type.lower() == "expense" and not category:
+        reasons.append("missing category for expense")
+
+    # Validate budget_limit_kes
+    try:
+        budget = float(record.get("budget_limit_kes", 0))
+        if budget < 0:
+            reasons.append("negative budget limit")
+    except (ValueError, TypeError):
+        reasons.append("budget_limit_kes must be numeric")
+
+    return reasons
+
+def validate_all(transactions):
+    valid_records = []
+    invalid_records = []
+
+    for record in transactions:
+        reasons = validate_transaction(record)
+        
+        if reasons:
+            invalid_records.append({"record": record, "reasons": reasons})
+        else:
+            valid_records.append(record)
+
+    return valid_records, invalid_records
+
+def add_transaction(transactions):
+    print("--- Add new transaction ---")
+    transaction_id = input("Transaction ID: ").strip()
+    transaction_type = input("Type (Income/Expense): ").strip()
+    category = input("Category: ").strip()
+    description = input("Description: ").strip()
+
+    try:
+        amount = float(input("Amount (KES): "))
+    except ValueError:
+        print("Invalid amount. Transaction not added.")
+        return
+    try:
+        budget_limit = float(input("Budget limit (KES): "))
+    except ValueError:
+        print("Invalid budget limit. Transaction not added.")
+        return
+
+
+    payment_method = input("Payment method: ").strip()
+
+    new_record = {
+        "transaction_id": transaction_id,
+        "transaction_type": transaction_type,
+        "category": category,
+        "description": description,
+        "amount_kes": amount,
+        "budget_limit_kes": budget_limit,
+        "payment_method": payment_method
+    }
+
+    reasons = validate_transaction(new_record)
+    if reasons:
+        print("Transaction rejected:")
+        for r in reasons:
+            print(" -", r)
+    else:
+        transactions.append(new_record)
+
+        write_transactions(transactions)
+        
+        print("Transaction added successfully.")
+
+def write_transactions(transactions, filename='cap-data.csv'):
+    """Write all transactions back to CSV file."""
+    if not transactions:
+        print("No transactions to write.")
+        return
+
+    fieldnames = [
+        "transaction_id",
+        "transaction_type",
+        "category",
+        "description",
+        "amount_kes",
+        "budget_limit_kes",
+        "payment_method"
+    ]
+
+    with open(filename, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(transactions)
+
+def search_transaction(valid_records):
+    term = input("Search by Transaction ID or Category: ").strip().lower()
+    matches = []
+    for r in valid_records:
+        if term == r["transaction_id"].lower() or term == r["category"].lower():
+            matches.append(r)
+
+    if not matches:
+        print("No matching transactions found.")
+    else:
+        for r in matches:
+            print(r)
+
+
+def add_or_search_transaction(transactions, valid_records):
+    print("1. Add a transaction")
+    print("2. Search a transaction")
+    sub_choice = input("Enter selection: ").strip()
+
+    if sub_choice == "1":
+        add_transaction(transactions)
+    elif sub_choice == "2":
+        search_transaction(valid_records)
+    else:
+        print("Invalid selection.")
+
+def calculate_summary(valid_records):
+    total_income = 0
+    total_expenditure = 0
+    category_totals = {}
+
+    for record in valid_records:
+        amount = record["amount_kes"]
+        if record["transaction_type"] == "Income":
+            total_income = total_income + amount
+        else:
+            total_expenditure = total_expenditure + amount
+            category = record["category"]
+            if category not in category_totals:
+                category_totals[category] = 0
+            category_totals[category] = category_totals[category] + amount
+
+    balance = total_income - total_expenditure
+    return total_income, total_expenditure, balance, category_totals
+
+
+def display_summary(valid_records):
+    total_income, total_expenditure, balance, category_totals = calculate_summary(valid_records)
+
+    print("*" * 40)
+    print("Total Income:", total_income)
+    print("Total Expenditure:", total_expenditure)
+    print("Balance:", balance)
+    print("-" * 40)
+    print("Expenditure by category:")
+    for category, total in category_totals.items():
+        print(f"  {category}: {total}")
+    print("*" * 40)
+
+
+def check_budget_warnings(valid_records):
+    _, _, _, category_totals = calculate_summary(valid_records)
+
+    # Design decision: if a category shows multiple budget limits across
+    # transactions, the LAST one encountered is used. Documented in README.
+    budget_limits = {}
+    for record in valid_records:
+        if record["transaction_type"] == "Expense":
+            budget_limits[record["category"]] = record["budget_limit_kes"]
+
+    warnings = []
+    for category, spent in category_totals.items():
+        limit = budget_limits.get(category, 0)
+        if spent > limit:
+            warnings.append(f"{category}: spent {spent}, budget {limit} - OVER by {spent - limit}")
+
+    return warnings
+
+
+def display_budget_warnings(valid_records):
+    warnings = check_budget_warnings(valid_records)
+    print("*" * 40)
+    if not warnings:
+        print("No categories over budget.")
+    else:
+        for w in warnings:
+            print(w)
+    print("*" * 40)
+
+
+def highest_spending_category(valid_records):
+    _, _, _, category_totals = calculate_summary(valid_records)
+    if not category_totals:
+        return None, 0
+
+    highest_category = None
+    highest_amount = None
+    for category, total in category_totals.items():
+        if highest_amount is None or total > highest_amount:
+            highest_amount = total
+            highest_category = category
+
+    return highest_category, highest_amount
+
+
+def count_payment_methods(valid_records):
+    counts = {}
+    for record in valid_records:
+        method = record["payment_method"]
+        if method not in counts:
+            counts[method] = 0
+        counts[method] = counts[method] + 1
+    return counts
+
+
+def display_payment_summary(valid_records):
+    counts = count_payment_methods(valid_records)
+    print("*" * 40)
+    print("Transactions by payment method:")
+    for method, count in counts.items():
+        print(f"  {method}: {count}")
+    print("*" * 40)
+
+def main():
+    transactions = load_transactions()
+    valid_records, invalid_records = validate_all(transactions)
+    
+    while True:
+        # ---------- Menu ----------
+        print("\n=== Personal Expense and Budget Tracker ===")
+        print("1. View valid transactions")
+        print("2. Add or search a transaction")
+        print("3. View income and expenditure summary")
+        print("4. View budget warnings")
+        print("5. View invalid records")
+        print("6. View payment summary")
+        print("7. Exit \n\n\n")
+    
+        choice = input("Enter selection: ").strip()
+    
+        if choice == "1":
+                for r in valid_records:
+                    print(r)
+    
+        elif choice == "2":
+            add_or_search_transaction(transactions, valid_records)
+            valid_records, invalid_records = validate_all(transactions)
+    
+        elif choice == "3":
+            display_summary(valid_records)
+    
+        elif choice == "4":
+            display_budget_warnings(valid_records)
+    
+        elif choice == "5":
+            for entry in invalid_records:
+                print(entry["record"]["transaction_id"], "-", ", ".join(entry["reasons"]))
+    
+        elif choice == "6":
+            display_payment_summary(valid_records)
+    
+        elif choice == "7":
+            print("Program closed.")
+            break
+    
+        else:
+            print("Invalid selection.")    
+
+if __name__ == "__main__":
+    main()
