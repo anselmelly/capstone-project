@@ -156,8 +156,7 @@ def search_transaction(valid_records):
     if not matches:
         print("No matching transactions found.")
     else:
-        for r in matches:
-            print(r)
+        display_table(matches, f"Search Results for '{term}'")
 
 
 def add_or_search_transaction(transactions, valid_records):
@@ -268,7 +267,27 @@ def display_payment_summary(valid_records):
     for method, count in counts.items():
         print(f"  {method}: {count}")
     print("*" * 40)
+    
+def display_table(records, title="Transactions"):
+    """Display records in a formatted ASCII table."""
+    if not records:
+        print("No records to display.")
+        return
 
+    print("\n" + "+" + "-" * 98 + "+")
+    print(f"| {title:<96} |")
+    print("+" + "-" * 98 + "+")
+    print(f"| {'ID':<8} | {'Type':<8} | {'Category':<13} | {'Description':<18} | {'Amount':<10} | {'Budget':<10} | {'Payment':<8} |")
+    print("+" + "-" * 98 + "+")
+    
+    for r in records:
+        print(f"| {r['transaction_id']:<8} | {r['transaction_type']:<8} | {r['category']:<13} | {r['description']:<18} | {r['amount_kes']:<10.0f} | {r['budget_limit_kes']:<10.0f} | {r['payment_method']:<8} |")
+    
+    print("+" + "-" * 98 + "+\n")
+
+def view_transactions(valid_records):
+    display_table(valid_records, "All Valid Transactions")
+    
 def main():
     transactions = load_transactions()
     valid_records, invalid_records = validate_all(transactions)
@@ -287,8 +306,7 @@ def main():
         choice = input("Enter selection: ").strip()
     
         if choice == "1":
-                for r in valid_records:
-                    print(r)
+            view_transactions(valid_records)
     
         elif choice == "2":
             add_or_search_transaction(transactions, valid_records)
