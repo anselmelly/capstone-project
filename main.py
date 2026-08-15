@@ -22,14 +22,12 @@ def load_transactions():
         reader = csv.DictReader(f)
         data = []
         for row in reader:
-            # Strip the BOM from keys (just in case)
-            row = {k.lstrip('\ufeff'): v for k, v in row.items()}
             
             # Cast numeric fields
             row["amount_kes"] = float(row["amount_kes"])
             row["budget_limit_kes"] = float(row["budget_limit_kes"])
             
-            # Optional: strip whitespace from all string values
+            # Strip whitespace from all string values
             for key in row:
                 if isinstance(row[key], str):
                     row[key] = row[key].strip()
@@ -83,7 +81,7 @@ def validate_all(transactions):
     return valid_records, invalid_records
 
 def add_transaction(transactions):
-    print("--- Add new transaction ---")
+    print("\n\n--- Add new transaction ---\n\n")
     transaction_id = input("Transaction ID: ").strip()
     transaction_type = input("Type (Income/Expense): ").strip()
     category = input("Category: ").strip()
@@ -147,6 +145,7 @@ def write_transactions(transactions, filename='cap-data.csv'):
         writer.writerows(transactions)
 
 def search_transaction(valid_records):
+    print("\nSearch Transaction\n")
     term = input("Search by Transaction ID or Category: ").strip().lower()
     matches = []
     for r in valid_records:
@@ -192,6 +191,9 @@ def calculate_summary(valid_records):
 
 
 def display_summary(valid_records):
+    
+    print("\n\nView Income and expenditure summary\n\n")
+    
     total_income, total_expenditure, balance, category_totals = calculate_summary(valid_records)
 
     print("*" * 40)
@@ -205,34 +207,88 @@ def display_summary(valid_records):
     print("*" * 40)
 
 
-def check_budget_warnings(valid_records):
-    _, _, _, category_totals = calculate_summary(valid_records)
-
-    # Design decision: if a category shows multiple budget limits across
-    # transactions, the LAST one encountered is used. Documented in README.
-    budget_limits = {}
+def check_individual_budget_warnings(valid_records):
+    """Check if individual transactions exceed their own budget limits."""
+    warnings = []
     for record in valid_records:
         if record["transaction_type"] == "Expense":
-            budget_limits[record["category"]] = record["budget_limit_kes"]
-
-    warnings = []
-    for category, spent in category_totals.items():
-        limit = budget_limits.get(category, 0)
-        if spent > limit:
-            warnings.append(f"{category}: spent {spent}, budget {limit} - OVER by {spent - limit}")
-
+            if record["amount_kes"] > record["budget_limit_kes"]:
+                warnings.append({
+                    "transaction_id": record["transaction_id"],
+                    "category": record["category"],
+                    "amount": record["amount_kes"],
+                    "limit": record["budget_limit_kes"],
+                    "over": record["amount_kes"] - record["budget_limit_kes"]
+                })
     return warnings
 
 
-def display_budget_warnings(valid_records):
-    warnings = check_budget_warnings(valid_records)
-    print("*" * 40)
+def display_individual_warnings(valid_records):
+    """Display individual transactions over budget."""
+    warnings = check_individual_budget_warnings(valid_records)
+    
     if not warnings:
-        print("No categories over budget.")
+        print("All individual transactions are within budget.")
     else:
+        print("\n" + "=" * 80)
+        print("INDIVIDUAL TRANSACTION WARNINGS")
+        print("=" * 80)
+        print(f"{'ID':<10} {'Category':<15} {'Amount':<12} {'Limit':<12} {'Over by':<12}")
+        print("-" * 80)
         for w in warnings:
-            print(w)
-    print("*" * 40)
+            print(f"{w['transaction_id']:<10} {w['category']:<15} {w['amount']:<12.0f} {w['limit']:<12.0f} {w['over']:<12.0f}")
+        print("=" * 80 + "\n")
+
+
+def check_category_budget_summary(valid_records):
+    """Check category totals vs. sum of budget limits per category."""
+    category_totals = {}
+    category_budgets = {}
+    
+    for record in valid_records:
+        if record["transaction_type"] == "Expense":
+            cat = record["category"]
+            if cat not in category_totals:
+                category_totals[cat] = 0
+                category_budgets[cat] = 0
+            category_totals[cat] += record["amount_kes"]
+            category_budgets[cat] += record["budget_limit_kes"]
+    
+    warnings = []
+    for category, spent in category_totals.items():
+        limit = category_budgets[category]
+        if spent > limit:
+            warnings.append({
+                "category": category,
+                "spent": spent,
+                "budget": limit,
+                "over": spent - limit
+            })
+    
+    return warnings
+
+
+def display_category_budget_summary(valid_records):
+    """Display category-level budget summary."""
+    warnings = check_category_budget_summary(valid_records)
+    
+    if not warnings:
+        print("All categories are within budget.")
+    else:
+        print("\n" + "=" * 80)
+        print("CATEGORY BUDGET SUMMARY")
+        print("=" * 80)
+        print(f"{'Category':<15} {'Spent':<12} {'Budget':<12} {'Over by':<12}")
+        print("-" * 80)
+        for w in warnings:
+            print(f"{w['category']:<15} {w['spent']:<12.0f} {w['budget']:<12.0f} {w['over']:<12.0f}")
+        print("=" * 80 + "\n")
+
+
+def display_all_budget_warnings(valid_records):
+    """Display both individual and category-level warnings."""
+    display_individual_warnings(valid_records)
+    display_category_budget_summary(valid_records)
 
 
 def highest_spending_category(valid_records):
@@ -277,11 +333,11 @@ def display_table(records, title="Transactions"):
     print("\n" + "+" + "-" * 98 + "+")
     print(f"| {title:<96} |")
     print("+" + "-" * 98 + "+")
-    print(f"| {'ID':<8} | {'Type':<8} | {'Category':<13} | {'Description':<18} | {'Amount':<10} | {'Budget':<10} | {'Payment':<8} |")
+    print(f"| {'ID':<8} | {'Type':<8} | {'Category':<13} | {'Description':<18} | {'Amount':<10} | {'Budget':<10} | {'Payment':<11} |")
     print("+" + "-" * 98 + "+")
     
     for r in records:
-        print(f"| {r['transaction_id']:<8} | {r['transaction_type']:<8} | {r['category']:<13} | {r['description']:<18} | {r['amount_kes']:<10.0f} | {r['budget_limit_kes']:<10.0f} | {r['payment_method']:<8} |")
+        print(f"| {r['transaction_id']:<8} | {r['transaction_type']:<8} | {r['category']:<13} | {r['description']:<18} | {r['amount_kes']:<10.0f} | {r['budget_limit_kes']:<10.0f} | {r['payment_method']:<11} |")
     
     print("+" + "-" * 98 + "+\n")
 
@@ -316,7 +372,7 @@ def main():
             display_summary(valid_records)
     
         elif choice == "4":
-            display_budget_warnings(valid_records)
+            display_all_budget_warnings(valid_records)
     
         elif choice == "5":
             for entry in invalid_records:
