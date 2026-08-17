@@ -63,13 +63,15 @@ Amount (KES): 2500
 Budget limit (KES): 5000
 Payment method: Card
 Transaction added successfully.
-```
 
-Persistence confirmed — last line of `cap-data.csv` after the session:
++--------------------------------------------------------------------------------------------------+
+| Transaction Added                                                                                |
++--------------------------------------------------------------------------------------------------+
+| ID       | Type     | Category      | Description        | Amount     | Budget     | Payment     |
++--------------------------------------------------------------------------------------------------+
+| TX999    | Expense  | Food          | Groceries          | 2500       | 5000       | Card        |
++--------------------------------------------------------------------------------------------------+
 
-```
-$ tail -1 cap-data.csv
-TX999,Expense,Food,Groceries,2500.0,5000.0,Card
 ```
 
 **Code path exercised:** `add_transaction()` → `validate_transaction()` returns
@@ -102,14 +104,18 @@ Enter selection: 1
 --- Add new transaction ---
 
 
-Transaction ID: TX998
+Transaction ID: tx998
 Type (Income/Expense): Expense
 Category: 
-Description: Office supplies
+Description: Office Supplies
 Amount (KES): 1500
 Budget limit (KES): 2000
-Payment method: Bank
+Payment method: Card
+
 Transaction rejected:
+
+Reasons
+
  - missing category for expense
 ```
 
@@ -136,9 +142,17 @@ prints reasons and skips `append`.
 
 ```
 Enter selection: 5
-TX005 - amount must be greater than zero
-TX011 - unrecognized transaction_type: 'EXP'
-TX016 - missing category for expense
+
+ Showing invalid records
+
+
++-------------------------------------------------------------------------------------------------------------------+
+| ID         | Type     | Category      | Description        | Amount    | Reasons                                  |
++-------------------------------------------------------------------------------------------------------------------+
+| TX005      | Expense  | Entertainment | Streaming          | -2500.0   | amount must be greater than zero         |
+| TX011      | EXP      | Entertainment | Streaming          | 8409.0    | unrecognized transaction_type: 'EXP'     |
+| TX016      | Expense  |               | Books              | 12004.0   | missing category for expense             |
++-------------------------------------------------------------------------------------------------------------------+
 ```
 
 TX005 is also absent from the valid-records table in Test 13's evidence,

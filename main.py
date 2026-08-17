@@ -113,7 +113,8 @@ def add_transaction(transactions):
 
     reasons = validate_transaction(new_record)
     if reasons:
-        print("Transaction rejected:")
+        print("\nTransaction rejected:\n")
+        print("Reasons\n")
         for r in reasons:
             print(" -", r)
     else:
@@ -121,7 +122,8 @@ def add_transaction(transactions):
 
         write_transactions(transactions)
         
-        print("Transaction added successfully.")
+        print("\nTransaction added successfully.")
+        display_table([new_record], "Transaction Added")
 
 def write_transactions(transactions, filename='cap-data.csv'):
     """Write all transactions back to CSV file."""
@@ -344,6 +346,24 @@ def display_table(records, title="Transactions"):
 def view_transactions(valid_records):
     display_table(valid_records, "All Valid Transactions")
     
+def display_invalid_table(invalid_records):
+    """Display invalid records in a formatted table with reasons."""
+    print("\n Showing invalid records\n")
+    if not invalid_records:
+        print("No invalid records.")
+        return
+
+    print("\n" + "+" + "-" * 115 + "+")
+    print(f"| {'ID':<10} | {'Type':<8} | {'Category':<13} | {'Description':<18} | {'Amount':<9} | {'Reasons':<40} |")
+    print("+" + "-" * 115 + "+")
+    
+    for entry in invalid_records:
+        record = entry["record"]
+        reasons = ", ".join(entry["reasons"])
+        print(f"| {record['transaction_id']:<10} | {record['transaction_type']:<8} | {record['category']:<13} | {record['description']:<18} | {record['amount_kes']:<9} | {reasons:<40} |")
+    
+    print("+" + "-" * 115 + "+\n")
+
 def main():
     transactions = load_transactions()
     valid_records, invalid_records = validate_all(transactions)
@@ -375,8 +395,7 @@ def main():
             display_all_budget_warnings(valid_records)
     
         elif choice == "5":
-            for entry in invalid_records:
-                print(entry["record"]["transaction_id"], "-", ", ".join(entry["reasons"]))
+            display_invalid_table(invalid_records)
     
         elif choice == "6":
             display_payment_summary(valid_records)
