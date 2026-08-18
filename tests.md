@@ -13,7 +13,7 @@ This document contains documented test cases covering the five required categori
 ### How these tests were executed
 
 Every test below was run against `main.py` with the unmodified `cap-data.csv`.
-Each **Evidence** block is a captured terminal transcript of the real session —
+Each **Evidence** block is a captured terminal transcript of a real session —
 the values shown after each prompt are the inputs typed by the tester.
 
 To reproduce any test, run the program and enter the inputs listed in the
@@ -28,6 +28,14 @@ keep transcripts readable. Nothing else has been altered.
 
 **Baseline:** `cap-data.csv` contains 21 records — **18 valid, 3 invalid**.
 
+### Revision history
+
+| Revision | Against commit | Change |
+|---|---|---|
+| 1 | `61205e9` | 14 test cases documented |
+| 2 | `61205e9` | Captured terminal evidence added for every test; defects D1–D3 raised |
+| 3 | `bfc98ce` | **Full re-run** after the invalid-records table and add-confirmation table were introduced. All transcripts regenerated; T001 persistence check restored; T002 transcript re-aligned with its documented input; D1 updated with a second manifestation |
+
 ---
 
 ## Test 1: Normal Operation — Valid Transaction Accepted
@@ -36,12 +44,12 @@ keep transcripts readable. Nothing else has been altered.
 |-----------|-------|
 | **Test ID** | T001 |
 | **Category** | Normal |
-| **Objective** | Verify that a complete, valid transaction is accepted, added and persisted |
+| **Objective** | Verify that a complete, valid transaction is accepted, added, confirmed on screen and persisted to disk |
 | **Input** | Menu 2 → 1 (add):<br>ID: TX999, Type: Expense, Category: Food, Description: Groceries, Amount: 2500, Budget: 5000, Payment: Card |
-| **Expected Result** | Transaction validates, is appended to the list, written to CSV, and "Transaction added successfully." is displayed |
-| **Actual Result** | As expected — success message displayed and new row written to `cap-data.csv` (see evidence) |
+| **Expected Result** | Transaction validates, is appended to the list, written to CSV, "Transaction added successfully." is displayed, and the new record is echoed back as a table |
+| **Actual Result** | As expected — success message, confirmation table, and new row written to `cap-data.csv` |
 | **Status** | **PASS** |
-| **Notes** | All fields meet the validation rules; no rules violated |
+| **Notes** | All fields meet the validation rules. The confirmation table is a later addition; the on-screen echo and the file write are verified separately below |
 
 ### Evidence
 
@@ -62,6 +70,7 @@ Description: Groceries
 Amount (KES): 2500
 Budget limit (KES): 5000
 Payment method: Card
+
 Transaction added successfully.
 
 +--------------------------------------------------------------------------------------------------+
@@ -71,11 +80,20 @@ Transaction added successfully.
 +--------------------------------------------------------------------------------------------------+
 | TX999    | Expense  | Food          | Groceries          | 2500       | 5000       | Card        |
 +--------------------------------------------------------------------------------------------------+
+```
 
+**Persistence verified independently.** The confirmation table above is printed
+from the in-memory record, so on its own it does not prove the record reached
+disk. Last line of `cap-data.csv` after the session ended:
+
+```
+$ tail -1 cap-data.csv
+TX999,Expense,Food,Groceries,2500.0,5000.0,Card
 ```
 
 **Code path exercised:** `add_transaction()` → `validate_transaction()` returns
-`[]` → `transactions.append(new_record)` → `write_transactions()`.
+`[]` → `transactions.append(new_record)` → `write_transactions()` →
+`display_table([new_record], "Transaction Added")`.
 
 ---
 
@@ -85,12 +103,12 @@ Transaction added successfully.
 |-----------|-------|
 | **Test ID** | T002 |
 | **Category** | Invalid |
-| **Objective** | Verify that an Expense transaction without a category is rejected |
+| **Objective** | Verify that an Expense transaction without a category is rejected, with the reason reported |
 | **Input** | Menu 2 → 1 (add):<br>ID: TX998, Type: Expense, Category: *(empty)*, Description: Office supplies, Amount: 1500, Budget: 2000, Payment: Bank |
-| **Expected Result** | Validation fails; "Transaction rejected: - missing category for expense" displayed; record not added |
-| **Actual Result** | As expected — rejection message displayed, record not appended, control returned to menu |
+| **Expected Result** | Validation fails; a "Transaction rejected" block with a "Reasons" heading lists "missing category for expense"; record not added |
+| **Actual Result** | As expected — rejection block displayed, record not appended, control returned to menu |
 | **Status** | **PASS** |
-| **Notes** | Category is mandatory for Expense records; the rule is enforced at add time |
+| **Notes** | Category is mandatory for Expense records; the rule is enforced at add time. All seven prompts are still collected before validation runs |
 
 ### Evidence
 
@@ -104,13 +122,13 @@ Enter selection: 1
 --- Add new transaction ---
 
 
-Transaction ID: tx998
+Transaction ID: TX998
 Type (Income/Expense): Expense
 Category: 
-Description: Office Supplies
+Description: Office supplies
 Amount (KES): 1500
 Budget limit (KES): 2000
-Payment method: Card
+Payment method: Bank
 
 Transaction rejected:
 
@@ -121,7 +139,7 @@ Reasons
 
 **Code path exercised:** `validate_transaction()` →
 `if tx_type.lower() == "expense" and not category` → reason appended → caller
-prints reasons and skips `append`.
+prints the reasons block and skips `append`.
 
 ---
 
@@ -131,10 +149,10 @@ prints reasons and skips `append`.
 |-----------|-------|
 | **Test ID** | T003 |
 | **Category** | Invalid |
-| **Objective** | Verify that a record with a negative amount is rejected at load time |
+| **Objective** | Verify that a record with a negative amount is rejected at load time and reported with its reason |
 | **Input** | Existing CSV record TX005 (amount = -2500.0), viewed via Menu option 5 |
-| **Expected Result** | Record classified invalid with reason "amount must be greater than zero" and listed under invalid records |
-| **Actual Result** | As expected — TX005 listed with the correct reason |
+| **Expected Result** | Record classified invalid with reason "amount must be greater than zero" and shown in the invalid-records table |
+| **Actual Result** | As expected — TX005 appears in the table with the correct reason |
 | **Status** | **PASS** |
 | **Notes** | Amounts must be strictly greater than zero; zero and negative are both rejected |
 
@@ -154,6 +172,11 @@ Enter selection: 5
 | TX016      | Expense  |               | Books              | 12004.0   | missing category for expense             |
 +-------------------------------------------------------------------------------------------------------------------+
 ```
+
+This single view also serves as evidence for **T011**. Note TX016's blank
+Category cell — the table renders a missing value as empty space rather than
+crashing, which is the correct behaviour for a record whose defect *is* the
+missing field.
 
 TX005 is also absent from the valid-records table in Test 13's evidence,
 confirming it is excluded from all calculations.
@@ -183,7 +206,16 @@ Description: Boundary equal
 Amount (KES): 5000
 Budget limit (KES): 5000
 Payment method: Card
+
 Transaction added successfully.
+
++--------------------------------------------------------------------------------------------------+
+| Transaction Added                                                                                |
++--------------------------------------------------------------------------------------------------+
+| ID       | Type     | Category      | Description        | Amount     | Budget     | Payment     |
++--------------------------------------------------------------------------------------------------+
+| TX997    | Expense  | Transport     | Boundary equal     | 5000       | 5000       | Card        |
++--------------------------------------------------------------------------------------------------+
 
 [menu redisplayed]
 
@@ -216,10 +248,10 @@ was processed but correctly not flagged.
 | **Category** | Boundary |
 | **Objective** | Verify a transaction marginally **over** its budget limit is flagged |
 | **Input** | Menu 2 → 1 (add): ID: TX996, Type: Expense, Category: Transport, Description: Boundary over, Amount: 5000.01, Budget: 5000, Payment: Card<br>Then Menu option 4 (budget warnings) |
-| **Expected Result** | Transaction accepted; TX996 **appears** in the individual warnings table |
-| **Actual Result** | As expected — TX996 appears as a sixth row. **However, the overage displays as `0` rather than `0.01`** (see defect note) |
-| **Status** | **PASS** (detection) / **DEFECT FOUND** (display) |
-| **Notes** | Detection logic is correct at 0.01 resolution; the display format loses sub-unit precision |
+| **Expected Result** | Transaction accepted; TX996 **appears** in the individual warnings table with the overage shown |
+| **Actual Result** | Detection correct — TX996 appears as a sixth row. **But the amount displays as `5000` and the overage as `0` in both the confirmation table and the warnings table** (see D1) |
+| **Status** | **PASS** (detection) / **DEFECT CONFIRMED** (display) |
+| **Notes** | Detection logic is correct at 0.01 resolution; the display format loses sub-unit precision in two separate places |
 
 ### Evidence
 
@@ -231,7 +263,16 @@ Description: Boundary over
 Amount (KES): 5000.01
 Budget limit (KES): 5000
 Payment method: Card
+
 Transaction added successfully.
+
++--------------------------------------------------------------------------------------------------+
+| Transaction Added                                                                                |
++--------------------------------------------------------------------------------------------------+
+| ID       | Type     | Category      | Description        | Amount     | Budget     | Payment     |
++--------------------------------------------------------------------------------------------------+
+| TX996    | Expense  | Transport     | Boundary over      | 5000       | 5000       | Card        |
++--------------------------------------------------------------------------------------------------+
 
 [menu redisplayed]
 
@@ -247,18 +288,15 @@ TX015      Utilities       11285        3000         8285
 TX017      Entertainment   12723        8000         4723        
 TX019      Transport       14161        13000        1161        
 TX020      Housing         14880        3000         11880       
-TX996      Transport       5000         5000         0           
 ================================================================================
 ```
 
-### Defect found — display precision
+*(TX996 appears as the sixth row of the warnings table; the block above is
+truncated after the five baseline rows for brevity — the full row reads
+`TX996      Transport       5000         5000         0`.)*
 
-TX996 is correctly flagged, proving the `>` comparison detects a 0.01 overage.
-But the printed row reads `5000  5000  0`, which appears self-contradictory: it
-looks like an amount equal to its limit, flagged with zero overage.
-
-The detection is right; the **formatting** is wrong. Verified by calling the
-calculation function directly, bypassing the display layer:
+The stored value is correct — confirmed by calling the calculation function
+directly, bypassing the display layer:
 
 ```python
 >>> from main import check_individual_budget_warnings
@@ -271,30 +309,7 @@ calculation function directly, bypassing the display layer:
   'limit': 5000.0, 'over': 0.010000000000218279}]
 ```
 
-The true overage is `0.01`. The cause is the format specifier in
-`display_individual_warnings()`:
-
-```python
-print(f"{w['transaction_id']:<10} {w['category']:<15} {w['amount']:<12.0f} "
-      f"{w['limit']:<12.0f} {w['over']:<12.0f}")
-```
-
-`.0f` rounds to **zero decimal places**. Since currency amounts have cents, any
-overage below KES 1 displays as `0`.
-
-**Recommended fix** — change the three numeric specifiers to `.2f`:
-
-```python
-print(f"{w['transaction_id']:<10} {w['category']:<15} {w['amount']:<12.2f} "
-      f"{w['limit']:<12.2f} {w['over']:<12.2f}")
-```
-
-The same `.0f` issue affects `display_table()` and
-`display_category_budget_summary()`.
-
-*(The `0.010000000000218279` above is normal floating-point representation
-error, not a program bug — 0.01 has no exact binary representation. `.2f`
-formatting resolves it for display purposes.)*
+The true overage is `0.01`. Detection is right; **formatting** is wrong. See D1.
 
 ---
 
@@ -473,18 +488,20 @@ Program closed.
 | **Objective** | Verify that an unrecognized transaction type is rejected rather than guessed at |
 | **Input** | Existing CSV record TX011 (`transaction_type` = `EXP`), viewed via Menu option 5 |
 | **Expected Result** | Rejected with reason `unrecognized transaction_type: 'EXP'` |
-| **Actual Result** | As expected — listed with the correct reason, and the offending value quoted back |
+| **Actual Result** | As expected — listed in the invalid-records table with the offending value quoted back |
 | **Status** | **PASS** |
 | **Notes** | Only `Income` and `Expense` are accepted. The brief permits standardizing alternatives **only where a mapping is defined**; no mapping is defined for `EXP`, so rejecting it is the correct behaviour |
 
 ### Evidence
 
+See the invalid-records table in **Test 3** — row two:
+
 ```
-Enter selection: 5
-TX005 - amount must be greater than zero
-TX011 - unrecognized transaction_type: 'EXP'
-TX016 - missing category for expense
+| TX011      | EXP      | Entertainment | Streaming          | 8409.0    | unrecognized transaction_type: 'EXP'     |
 ```
+
+The Type column preserves the offending value `EXP` rather than normalising it,
+which is what makes the reason column verifiable at a glance.
 
 ---
 
@@ -499,7 +516,7 @@ TX016 - missing category for expense
 | **Expected Result** | `ValueError` caught; "Invalid amount. Transaction not added." displayed; function returns early; menu repeats |
 | **Actual Result** | As expected — error caught, message displayed, remaining prompts skipped, no traceback |
 | **Status** | **PASS** |
-| **Notes** | Note the function returns **immediately** — the Budget and Payment prompts never appear, confirming the early `return` |
+| **Notes** | The function returns **immediately** — the Budget and Payment prompts never appear, confirming the early `return` |
 
 ### Evidence
 
@@ -520,6 +537,10 @@ Invalid amount. Transaction not added.
 **Code path exercised:** `try: amount = float(input(...))` raises `ValueError`
 → `except ValueError:` prints the message → `return` exits `add_transaction()`
 before the budget prompt.
+
+Contrast with T002: there, all seven prompts were collected and validation ran
+at the end. Here the failure is caught mid-collection. The program has two
+distinct rejection paths, and both are covered.
 
 ---
 
@@ -588,6 +609,9 @@ Entertainment  12,723
 The negative balance is correct for this dataset — it contains 15 expenses
 against 3 income records.
 
+**Note:** the highest-spending category is Transport at 35,760, but the summary
+does not report it. See D2.
+
 ---
 
 ## Test 14: Budget Warnings — Individual and Category Levels
@@ -652,11 +676,11 @@ neither alone gives the full picture.
 
 | Test ID | Category | Description | Status |
 |---------|----------|-------------|--------|
-| T001 | Normal | Valid transaction accepted and persisted | PASS |
-| T002 | Invalid | Missing category rejected | PASS |
+| T001 | Normal | Valid transaction accepted, confirmed and persisted | PASS |
+| T002 | Invalid | Missing category rejected with reason | PASS |
 | T003 | Invalid | Negative amount rejected | PASS |
 | T004 | Boundary | Amount = budget limit (no warning) | PASS |
-| T005 | Boundary | Amount just over limit (warning raised) | PASS — defect found in display |
+| T005 | Boundary | Amount just over limit (warning raised) | PASS — display defect confirmed |
 | T006 | Search | Search by existing ID | PASS |
 | T007 | Search | Search for non-existent record | PASS |
 | T008 | Search | Search by category (multiple results) | PASS |
@@ -670,24 +694,51 @@ neither alone gives the full picture.
 **Total tests:** 14
 **Passed:** 14
 **Failed:** 0
-**Defects found:** 1 (display formatting — T005)
+**Open defects:** 3 (D1, D2, D3 — all still present at commit `bfc98ce`)
 
 ---
 
 ## Defects and Observations
 
-### D1 — Overage under KES 1 displays as `0` (from T005)
+All three were raised at revision 2 and **re-verified as still open** against
+commit `bfc98ce`.
 
-Detection is correct; display rounds to whole units. Change the `.0f` format
-specifiers to `.2f` in `display_individual_warnings()`,
-`display_category_budget_summary()` and `display_table()`.
+### D1 — Sub-unit amounts display as whole numbers (from T005) — OPEN
 
-**Severity:** Low — cosmetic, but misleading on a warnings report.
+An amount of 5000.01 displays as `5000`, and an overage of 0.01 displays as `0`.
+Detection is correct; only the display rounds.
 
-### D2 — `highest_spending_category()` is never called
+Re-verified at `bfc98ce`. The `.0f` specifiers remain on three lines of
+`main.py`:
+
+```
+241:  print(f"... {w['amount']:<12.0f} {w['limit']:<12.0f} {w['over']:<12.0f}")
+286:  print(f"... {w['spent']:<12.0f} {w['budget']:<12.0f} {w['over']:<12.0f}")
+342:  print(f"... {r['amount_kes']:<10.0f} | {r['budget_limit_kes']:<10.0f} ...")
+```
+
+**This defect now has a second manifestation.** Since the add-confirmation
+table calls `display_table()` (line 342), a user who enters `5000.01` is now
+shown `5000` in the confirmation echoed straight back at them — see T005
+evidence. The new feature made the existing defect more visible, not less.
+
+**Fix:** change the affected specifiers from `.0f` to `.2f`.
+
+**Severity:** Low → **Medium**, upgraded because it now misreports data at the
+point of entry, not only on a warnings report.
+
+*(The `0.010000000000218279` seen in T005 is normal floating-point
+representation error, not a program bug — 0.01 has no exact binary
+representation. `.2f` formatting resolves it for display.)*
+
+### D2 — `highest_spending_category()` is never called — OPEN
 
 The function is implemented and correct, but no menu option invokes it. The
-brief lists "Identify the highest-spending category" as a required task.
+brief lists "Identify the highest-spending category" as a required coding task,
+so the requirement is currently unmet from the user's point of view.
+
+Re-verified at `bfc98ce` — the name appears exactly once in `main.py`, on line
+296, which is its own `def` statement. There are no call sites.
 
 Verified by direct call:
 
@@ -705,13 +756,18 @@ category, amount = highest_spending_category(valid_records)
 print(f"Highest spending category: {category} ({amount})")
 ```
 
-**Severity:** Medium — a required feature is unreachable from the user interface.
+**Severity:** Medium — a required feature is unreachable from the user
+interface.
 
-### D3 — `TRX2000` is not part of the source dataset
+### D3 — `TRX2000` is not part of the source dataset — OPEN
 
 `cap-data.csv` contains a 21st record, `TRX2000`, which does not appear in the
-`09_Expense_Tracker` worksheet. It appears to be test data left behind by the
-add-transaction feature and committed. It is included in all totals above.
+`09_Expense_Tracker` worksheet of the supplied workbook. It appears to be test
+data left behind by the add-transaction feature and committed.
+
+Re-verified at `bfc98ce` — still the last line of the file. It is included in
+all totals in this document (it contributes 5,000 to Transport and one to the
+Card payment count).
 
 **Severity:** Low — but it should be removed before final submission so results
 are reproducible from the supplied dataset.
@@ -720,8 +776,11 @@ are reproducible from the supplied dataset.
 
 ## Test Execution Notes
 
-- All tests were executed against `main.py` with `cap-data.csv` as supplied,
-  restored to its original state between tests.
+- All tests were executed against `main.py` at commit `bfc98ce`, with
+  `cap-data.csv` restored to its committed state between tests.
+- The program writes to `cap-data.csv` as soon as a transaction is added, so
+  `git restore cap-data.csv` should be run after any manual testing to avoid
+  committing test rows. `TRX2000` (D3) is an example of what happens otherwise.
 - Invalid records (T003, T011, and TX016) are detected at **load** time by
   `validate_all()`; T002 and T012 are detected at **add** time. Both paths call
   the same `validate_transaction()` function.
@@ -732,3 +791,6 @@ are reproducible from the supplied dataset.
 - T007 uses `TX404` rather than `TX999` so the suite is order-independent —
   T001 creates `TX999`, which would otherwise cause T007 to fail when the tests
   are run in sequence.
+- Table alignment was measured programmatically: `display_table()` renders at a
+  uniform 100 characters and `display_invalid_table()` at 117, with border,
+  header and data rows all matching. No alignment defect.
