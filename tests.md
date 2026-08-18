@@ -12,12 +12,13 @@ This document contains documented test cases covering the five required categori
 
 ### How these tests were executed
 
-Every test below was run against `main.py` with the unmodified `cap-data.csv`.
-Each **Evidence** block is a captured terminal transcript of a real session —
-the values shown after each prompt are the inputs typed by the tester.
+Every test below was run against `main.py` with `cap-data.csv` restored to its
+committed state. Each **Evidence** block is a captured terminal transcript of a
+real session — the values shown after each prompt are the inputs typed by the
+tester.
 
-To reproduce any test, run the program and enter the inputs listed in the
-**Input** row:
+To reproduce any test, run the program from inside the repository directory and
+enter the inputs listed in the **Input** row:
 
 ```bash
 python3 main.py
@@ -26,15 +27,17 @@ python3 main.py
 Repeated menu re-displays between steps are elided as `[menu redisplayed]` to
 keep transcripts readable. Nothing else has been altered.
 
-**Baseline:** `cap-data.csv` contains 21 records — **18 valid, 3 invalid**.
+**Baseline:** `cap-data.csv` contains 21 records — **18 valid, 3 invalid**
+(15 Expense + 3 Income among the valid ones).
 
 ### Revision history
 
-| Revision | Against commit | Change |
+| Rev | Against commit | Change |
 |---|---|---|
 | 1 | `61205e9` | 14 test cases documented |
 | 2 | `61205e9` | Captured terminal evidence added for every test; defects D1–D3 raised |
-| 3 | `bfc98ce` | **Full re-run** after the invalid-records table and add-confirmation table were introduced. All transcripts regenerated; T001 persistence check restored; T002 transcript re-aligned with its documented input; D1 updated with a second manifestation |
+| 3 | `bfc98ce` | Full re-run after the invalid-records and add-confirmation tables were added; D1 upgraded to Medium |
+| 4 | `5fe78d6` | Full re-run after the summary, category-budget and payment-summary displays were reformatted. **D1 verified as FIXED.** T015 added for the payment summary. Three new findings raised: D4, D5, D6 |
 
 ---
 
@@ -47,9 +50,9 @@ keep transcripts readable. Nothing else has been altered.
 | **Objective** | Verify that a complete, valid transaction is accepted, added, confirmed on screen and persisted to disk |
 | **Input** | Menu 2 → 1 (add):<br>ID: TX999, Type: Expense, Category: Food, Description: Groceries, Amount: 2500, Budget: 5000, Payment: Card |
 | **Expected Result** | Transaction validates, is appended to the list, written to CSV, "Transaction added successfully." is displayed, and the new record is echoed back as a table |
-| **Actual Result** | As expected — success message, confirmation table, and new row written to `cap-data.csv` |
+| **Actual Result** | As expected — success message, confirmation table showing `2500.00`, and new row written to `cap-data.csv` |
 | **Status** | **PASS** |
-| **Notes** | All fields meet the validation rules. The confirmation table is a later addition; the on-screen echo and the file write are verified separately below |
+| **Notes** | Amounts now display to two decimal places following the D1 fix |
 
 ### Evidence
 
@@ -78,13 +81,13 @@ Transaction added successfully.
 +--------------------------------------------------------------------------------------------------+
 | ID       | Type     | Category      | Description        | Amount     | Budget     | Payment     |
 +--------------------------------------------------------------------------------------------------+
-| TX999    | Expense  | Food          | Groceries          | 2500       | 5000       | Card        |
+| TX999    | Expense  | Food          | Groceries          | 2500.00    | 5000.00    | Card        |
 +--------------------------------------------------------------------------------------------------+
 ```
 
-**Persistence verified independently.** The confirmation table above is printed
-from the in-memory record, so on its own it does not prove the record reached
-disk. Last line of `cap-data.csv` after the session ended:
+**Persistence verified independently.** The confirmation table is printed from
+the in-memory record, so on its own it does not prove the record reached disk.
+Last line of `cap-data.csv` after the session ended:
 
 ```
 $ tail -1 cap-data.csv
@@ -108,7 +111,7 @@ TX999,Expense,Food,Groceries,2500.0,5000.0,Card
 | **Expected Result** | Validation fails; a "Transaction rejected" block with a "Reasons" heading lists "missing category for expense"; record not added |
 | **Actual Result** | As expected — rejection block displayed, record not appended, control returned to menu |
 | **Status** | **PASS** |
-| **Notes** | Category is mandatory for Expense records; the rule is enforced at add time. All seven prompts are still collected before validation runs |
+| **Notes** | All seven prompts are still collected before validation runs — contrast with T012 |
 
 ### Evidence
 
@@ -175,11 +178,10 @@ Enter selection: 5
 
 This single view also serves as evidence for **T011**. Note TX016's blank
 Category cell — the table renders a missing value as empty space rather than
-crashing, which is the correct behaviour for a record whose defect *is* the
-missing field.
+crashing, which is correct for a record whose defect *is* the missing field.
 
-TX005 is also absent from the valid-records table in Test 13's evidence,
-confirming it is excluded from all calculations.
+TX005 is also absent from the totals in Test 13, confirming it is excluded from
+all calculations.
 
 ---
 
@@ -214,7 +216,7 @@ Transaction added successfully.
 +--------------------------------------------------------------------------------------------------+
 | ID       | Type     | Category      | Description        | Amount     | Budget     | Payment     |
 +--------------------------------------------------------------------------------------------------+
-| TX997    | Expense  | Transport     | Boundary equal     | 5000       | 5000       | Card        |
+| TX997    | Expense  | Transport     | Boundary equal     | 5000.00    | 5000.00    | Card        |
 +--------------------------------------------------------------------------------------------------+
 
 [menu redisplayed]
@@ -226,17 +228,35 @@ INDIVIDUAL TRANSACTION WARNINGS
 ================================================================================
 ID         Category        Amount       Limit        Over by     
 --------------------------------------------------------------------------------
-TX010      Education       7690         3000         4690        
-TX015      Utilities       11285        3000         8285        
-TX017      Entertainment   12723        8000         4723        
-TX019      Transport       14161        13000        1161        
-TX020      Housing         14880        3000         11880       
+TX010      Education       7690.00      3000.00      4690.00     
+TX015      Utilities       11285.00     3000.00      8285.00     
+TX017      Entertainment   12723.00     8000.00      4723.00     
+TX019      Transport       14161.00     13000.00     1161.00     
+TX020      Housing         14880.00     3000.00      11880.00    
+================================================================================
+
+
+================================================================================
+CATEGORY BUDGET SUMMARY (WITH WARNINGS)
+================================================================================
+Category        Spent        Budget       Status         
+--------------------------------------------------------------------------------
+Transport       40760.00     48000.00     OK             
+Housing         33636.00     34500.00     OK             
+Utilities       20913.00     26500.00     OK             
+Education       11066.00     16000.00     OK             
+Entertainment   12723.00     8000.00      OVER           
 ================================================================================
 ```
 
-**TX997 is absent from the warnings table** — this absence is the result being
-tested. The five pre-existing warnings are unchanged, confirming the new record
-was processed but correctly not flagged.
+**TX997 is absent from the individual warnings table** — this absence is the
+result being tested. The five baseline warnings are unchanged.
+
+**Secondary confirmation:** Transport now reads 40,760 spent against 48,000
+budget, up from the baseline 35,760 / 43,000 in T014. That is exactly TX997's
+5,000 and its 5,000 limit, proving the record *was* processed and included in
+the category aggregate — it simply did not breach anything. A record that was
+silently dropped would leave both figures unchanged.
 
 ---
 
@@ -246,12 +266,12 @@ was processed but correctly not flagged.
 |-----------|-------|
 | **Test ID** | T005 |
 | **Category** | Boundary |
-| **Objective** | Verify a transaction marginally **over** its budget limit is flagged |
+| **Objective** | Verify a transaction marginally **over** its budget limit is flagged, and that the overage is reported accurately |
 | **Input** | Menu 2 → 1 (add): ID: TX996, Type: Expense, Category: Transport, Description: Boundary over, Amount: 5000.01, Budget: 5000, Payment: Card<br>Then Menu option 4 (budget warnings) |
-| **Expected Result** | Transaction accepted; TX996 **appears** in the individual warnings table with the overage shown |
-| **Actual Result** | Detection correct — TX996 appears as a sixth row. **But the amount displays as `5000` and the overage as `0` in both the confirmation table and the warnings table** (see D1) |
-| **Status** | **PASS** (detection) / **DEFECT CONFIRMED** (display) |
-| **Notes** | Detection logic is correct at 0.01 resolution; the display format loses sub-unit precision in two separate places |
+| **Expected Result** | Transaction accepted; TX996 appears in the individual warnings table showing an overage of `0.01` |
+| **Actual Result** | As expected — flagged, and the overage now displays correctly as `0.01` |
+| **Status** | **PASS** |
+| **Notes** | This test previously exposed defect D1, where the overage displayed as `0`. **D1 has since been fixed and this test now verifies the fix** |
 
 ### Evidence
 
@@ -271,45 +291,35 @@ Transaction added successfully.
 +--------------------------------------------------------------------------------------------------+
 | ID       | Type     | Category      | Description        | Amount     | Budget     | Payment     |
 +--------------------------------------------------------------------------------------------------+
-| TX996    | Expense  | Transport     | Boundary over      | 5000       | 5000       | Card        |
+| TX996    | Expense  | Transport     | Boundary over      | 5000.01    | 5000.00    | Card        |
 +--------------------------------------------------------------------------------------------------+
 
 [menu redisplayed]
 
 Enter selection: 4
 
-================================================================================
-INDIVIDUAL TRANSACTION WARNINGS
-================================================================================
-ID         Category        Amount       Limit        Over by     
---------------------------------------------------------------------------------
-TX010      Education       7690         3000         4690        
-TX015      Utilities       11285        3000         8285        
-TX017      Entertainment   12723        8000         4723        
-TX019      Transport       14161        13000        1161        
-TX020      Housing         14880        3000         11880       
+[baseline rows omitted]
+TX996      Transport       5000.01      5000.00      0.01        
 ================================================================================
 ```
 
-*(TX996 appears as the sixth row of the warnings table; the block above is
-truncated after the five baseline rows for brevity — the full row reads
-`TX996      Transport       5000         5000         0`.)*
+### Regression check — D1 fix verified
 
-The stored value is correct — confirmed by calling the calculation function
-directly, bypassing the display layer:
+| | Revision 3 (`bfc98ce`) | Revision 4 (`5fe78d6`) |
+|---|---|---|
+| Confirmation table | `5000` | `5000.01` ✓ |
+| Warnings row | `5000  5000  0` | `5000.01  5000.00  0.01` ✓ |
+
+Both manifestations of D1 are resolved. The underlying detection was always
+correct — confirmed at revision 2 by calling the function directly:
 
 ```python
 >>> from main import check_individual_budget_warnings
->>> rec = {'transaction_id': 'TX996', 'transaction_type': 'Expense',
-...        'category': 'Transport', 'description': 'Boundary over',
-...        'amount_kes': 5000.01, 'budget_limit_kes': 5000.0,
-...        'payment_method': 'Card'}
->>> check_individual_budget_warnings([rec])
-[{'transaction_id': 'TX996', 'category': 'Transport', 'amount': 5000.01,
-  'limit': 5000.0, 'over': 0.010000000000218279}]
+>>> check_individual_budget_warnings([rec])   # rec = TX996, amount 5000.01
+[{'transaction_id': 'TX996', ..., 'over': 0.010000000000218279}]
 ```
 
-The true overage is `0.01`. Detection is right; **formatting** is wrong. See D1.
+Only the display was at fault, and the `.0f` → `.2f` change fixed it.
 
 ---
 
@@ -329,13 +339,6 @@ The true overage is `0.01`. Detection is right; **formatting** is wrong. See D1.
 ### Evidence
 
 ```
-Enter selection: 2
-1. Add a transaction
-2. Search a transaction
-Enter selection: 2
-
-Search Transaction
-
 Search by Transaction ID or Category: TX001
 
 +--------------------------------------------------------------------------------------------------+
@@ -343,7 +346,7 @@ Search by Transaction ID or Category: TX001
 +--------------------------------------------------------------------------------------------------+
 | ID       | Type     | Category      | Description        | Amount     | Budget     | Payment     |
 +--------------------------------------------------------------------------------------------------+
-| TX001    | Expense  | Transport     | Fuel               | 1219       | 5500       | Card        |
+| TX001    | Expense  | Transport     | Fuel               | 1219.00    | 5500.00    | Card        |
 +--------------------------------------------------------------------------------------------------+
 ```
 
@@ -365,11 +368,6 @@ Search by Transaction ID or Category: TX001
 ### Evidence
 
 ```
-Enter selection: 2
-1. Add a transaction
-2. Search a transaction
-Enter selection: 2
-
 Search Transaction
 
 Search by Transaction ID or Category: TX404
@@ -401,16 +399,17 @@ Search by Transaction ID or Category: Transport
 +--------------------------------------------------------------------------------------------------+
 | ID       | Type     | Category      | Description        | Amount     | Budget     | Payment     |
 +--------------------------------------------------------------------------------------------------+
-| TX001    | Expense  | Transport     | Fuel               | 1219       | 5500       | Card        |
-| TX007    | Expense  | Transport     | Fuel               | 5533       | 8000       | Bank        |
-| TX013    | Expense  | Transport     | Fuel               | 9847       | 10500      | Card        |
-| TX019    | Expense  | Transport     | Fuel               | 14161      | 13000      | Bank        |
-| TRX2000  | Expense  | Transport     | Transportation     | 5000       | 6000       | Card        |
+| TX001    | Expense  | Transport     | Fuel               | 1219.00    | 5500.00    | Card        |
+| TX007    | Expense  | Transport     | Fuel               | 5533.00    | 8000.00    | Bank        |
+| TX013    | Expense  | Transport     | Fuel               | 9847.00    | 10500.00   | Card        |
+| TX019    | Expense  | Transport     | Fuel               | 14161.00   | 13000.00   | Bank        |
+| TRX2000  | Expense  | Transport     | Transportation     | 5000.00    | 6000.00    | Card        |
 +--------------------------------------------------------------------------------------------------+
 ```
 
 Sum check: 1219 + 5533 + 9847 + 14161 + 5000 = **35,760**, matching the
-Transport figure in Test 13's category breakdown.
+Transport figure in Test 13's category breakdown and the Transport row of
+Test 14's category budget summary.
 
 ---
 
@@ -459,7 +458,7 @@ Program closed.
 | **Expected Result** | "Program closed." displayed; loop exits; process terminates with no error |
 | **Actual Result** | As expected — message displayed and process exited cleanly |
 | **Status** | **PASS** |
-| **Notes** | `break` exits the `while True` loop; all added transactions were already written to CSV at add time |
+| **Notes** | `break` exits the `while True` loop; added transactions were already written to CSV at add time |
 
 ### Evidence
 
@@ -490,7 +489,7 @@ Program closed.
 | **Expected Result** | Rejected with reason `unrecognized transaction_type: 'EXP'` |
 | **Actual Result** | As expected — listed in the invalid-records table with the offending value quoted back |
 | **Status** | **PASS** |
-| **Notes** | Only `Income` and `Expense` are accepted. The brief permits standardizing alternatives **only where a mapping is defined**; no mapping is defined for `EXP`, so rejecting it is the correct behaviour |
+| **Notes** | Only `Income` and `Expense` are accepted. See **D6** — the Algorithm document states that `EXP` should be standardized to `Expense`, which the code does not do |
 
 ### Evidence
 
@@ -503,6 +502,11 @@ See the invalid-records table in **Test 3** — row two:
 The Type column preserves the offending value `EXP` rather than normalising it,
 which is what makes the reason column verifiable at a glance.
 
+The brief permits standardizing alternatives **only where a mapping is
+defined**. Rejecting `EXP` is therefore defensible — but the group must decide
+whether `EXP → Expense` counts as a defined mapping, because the Algorithm
+document currently says it does. See D6.
+
 ---
 
 ## Test 12: Data Validation — Non-Numeric Amount
@@ -512,7 +516,7 @@ which is what makes the reason column verifiable at a glance.
 | **Test ID** | T012 |
 | **Category** | Invalid |
 | **Objective** | Verify that non-numeric input for amount is handled without crashing |
-| **Input** | Menu 2 → 1 (add): ID: TX997, Type: Expense, Category: Food, Description: Snacks, Amount: `two thousand` |
+| **Input** | Menu 2 → 1 (add): ID: TX995, Type: Expense, Category: Food, Description: Snacks, Amount: `two thousand` |
 | **Expected Result** | `ValueError` caught; "Invalid amount. Transaction not added." displayed; function returns early; menu repeats |
 | **Actual Result** | As expected — error caught, message displayed, remaining prompts skipped, no traceback |
 | **Status** | **PASS** |
@@ -524,7 +528,7 @@ which is what makes the reason column verifiable at a glance.
 --- Add new transaction ---
 
 
-Transaction ID: TX997
+Transaction ID: TX995
 Type (Income/Expense): Expense
 Category: Food
 Description: Snacks
@@ -553,31 +557,33 @@ distinct rejection paths, and both are covered.
 | **Objective** | Verify income, expenditure, balance and per-category totals are computed correctly from valid records only |
 | **Input** | Menu option 3 on the unmodified dataset |
 | **Expected Result** | Income = sum of Income records; Expenditure = sum of Expense records; Balance = Income − Expenditure; per-category breakdown of expenses |
-| **Actual Result** | As expected — Income 27,384; Expenditure 114,098; Balance −86,714 (see arithmetic check) |
+| **Actual Result** | As expected — Income 27,384.00; Expenditure 114,098.00; Balance −86,714.00 |
 | **Status** | **PASS** |
-| **Notes** | The three invalid records (TX005, TX011, TX016) are excluded, as intended |
+| **Notes** | The three invalid records (TX005, TX011, TX016) are excluded, as intended. The highest-spending category is visible here as Transport but is not labelled as such — see D2 |
 
 ### Evidence
 
 ```
 Enter selection: 3
 
+============================================================
+INCOME AND EXPENDITURE SUMMARY
+============================================================
+Total Income                   KES             27384.00
+Total Expenditure              KES            114098.00
+Balance                        KES            -86714.00
+============================================================
 
-View Income and expenditure summary
-
-
-****************************************
-Total Income: 27384.0
-Total Expenditure: 114098.0
-Balance: -86714.0
-----------------------------------------
-Expenditure by category:
-  Transport: 35760.0
-  Housing: 33636.0
-  Utilities: 20913.0
-  Education: 11066.0
-  Entertainment: 12723.0
-****************************************
+EXPENDITURE BY CATEGORY
+------------------------------------------------------------
+Category                                     Amount
+------------------------------------------------------------
+Transport                      KES           35760.00
+Housing                        KES           33636.00
+Utilities                      KES           20913.00
+Education                      KES           11066.00
+Entertainment                  KES           12723.00
+============================================================
 ```
 
 ### Arithmetic verification
@@ -606,11 +612,14 @@ Entertainment  12,723
 
 **Balance:** 27,384 − 114,098 = **−86,714** ✓ matches
 
-The negative balance is correct for this dataset — it contains 15 expenses
-against 3 income records.
+The negative balance is correct for this dataset — 15 expenses against 3 income
+records.
 
-**Note:** the highest-spending category is Transport at 35,760, but the summary
-does not report it. See D2.
+**Minor observation:** the `EXPENDITURE BY CATEGORY` sub-header prints
+`{'Category':<30} {'Amount':>20}` but the data rows print
+`{category:<30} KES {total:>18.2f}`. The header does not account for the `KES `
+prefix, so the "Amount" label sits four characters left of the figures beneath
+it. Cosmetic only.
 
 ---
 
@@ -622,10 +631,10 @@ does not report it. See D2.
 | **Category** | Normal |
 | **Objective** | Verify warnings are produced at both the individual-transaction and category-aggregate levels |
 | **Input** | Menu option 4 on the unmodified dataset |
-| **Expected Result** | Individual table lists expenses exceeding their own limit; category table lists categories whose total spend exceeds their total budget |
-| **Actual Result** | As expected — 5 individual warnings and 1 category warning (see evidence and spot-check) |
+| **Expected Result** | Individual table lists expenses exceeding their own limit; category table lists every category with an OK/OVER status |
+| **Actual Result** | As expected — 5 individual warnings; all 5 categories listed with Entertainment marked OVER |
 | **Status** | **PASS** |
-| **Notes** | Two independent checks. The brief requires the category-level warning; the individual-level check is additional |
+| **Notes** | The category view now shows **all** categories with a status column, rather than only those over budget. This is an improvement — a category being within budget is now positively confirmed rather than merely absent |
 
 ### Evidence
 
@@ -637,38 +646,102 @@ INDIVIDUAL TRANSACTION WARNINGS
 ================================================================================
 ID         Category        Amount       Limit        Over by     
 --------------------------------------------------------------------------------
-TX010      Education       7690         3000         4690        
-TX015      Utilities       11285        3000         8285        
-TX017      Entertainment   12723        8000         4723        
-TX019      Transport       14161        13000        1161        
-TX020      Housing         14880        3000         11880       
+TX010      Education       7690.00      3000.00      4690.00     
+TX015      Utilities       11285.00     3000.00      8285.00     
+TX017      Entertainment   12723.00     8000.00      4723.00     
+TX019      Transport       14161.00     13000.00     1161.00     
+TX020      Housing         14880.00     3000.00      11880.00    
 ================================================================================
 
 
 ================================================================================
-CATEGORY BUDGET SUMMARY
+CATEGORY BUDGET SUMMARY (WITH WARNINGS)
 ================================================================================
-Category        Spent        Budget       Over by     
+Category        Spent        Budget       Status         
 --------------------------------------------------------------------------------
-Entertainment   12723        8000         4723        
+Transport       35760.00     43000.00     OK             
+Housing         33636.00     34500.00     OK             
+Utilities       20913.00     26500.00     OK             
+Education       11066.00     16000.00     OK             
+Entertainment   12723.00     8000.00      OVER           
 ================================================================================
 ```
 
 ### Spot-check of the logic
 
 **Individual level** — TX020: amount 14,880 against its own limit of 3,000.
-Over by 14,880 − 3,000 = **11,880** ✓ matches the printed row.
+Over by 14,880 − 3,000 = **11,880.00** ✓ matches the printed row.
 
 **Category level** — Entertainment has one valid expense (TX017: 12,723,
 limit 8,000). TX011 is in the same category but invalid, so it is excluded.
-Spent 12,723 > budget 8,000, over by **4,723** ✓ matches.
+Spent 12,723 > budget 8,000 → **OVER** ✓ matches.
 
-**Why only Entertainment appears at category level:** each category sums the
-budget limits of *all* its records, so multi-record categories accumulate a
-large combined allowance. Transport, for example, totals 35,760 spent against
-5,500 + 8,000 + 10,500 + 13,000 + 6,000 = 43,000 budget — under, despite TX019
-individually breaching its own limit. This is why both levels are needed:
-neither alone gives the full picture.
+**Cross-check** — the Spent column sums to
+35,760 + 33,636 + 20,913 + 11,066 + 12,723 = **114,098**, matching Total
+Expenditure in T013. ✓
+
+**Why only Entertainment is OVER:** each category sums the budget limits of
+*all* its records, so multi-record categories accumulate a large combined
+allowance. Transport totals 35,760 against 43,000 — under, despite TX019
+individually breaching its own 13,000 limit. This is why both levels are
+needed: neither alone gives the full picture, and the individual table is what
+catches TX019.
+
+---
+
+## Test 15: Payment Summary — Counts and Totals by Method
+
+| Attribute | Value |
+|-----------|-------|
+| **Test ID** | T015 |
+| **Category** | Normal |
+| **Objective** | Verify the payment summary counts transactions and totals amounts per payment method, as required by the brief |
+| **Input** | Menu option 6 on the unmodified dataset |
+| **Expected Result** | Every payment method listed with the number of transactions and total amount |
+| **Actual Result** | Table displayed with counts and totals — **but only 15 of the 18 valid transactions are counted**; the 3 Income records are excluded (see D4) |
+| **Status** | **PASS** (display) / **FAIL** (completeness — see D4) |
+| **Notes** | The brief requires "Count transactions by payment method" without restricting to expenses |
+
+### Evidence
+
+```
+Enter selection: 6
+
+================================================================================
+PAYMENT METHOD SUMMARY
+================================================================================
+Method          Count    Total Amount    Total Budget   
+--------------------------------------------------------------------------------
+Card            5        35760.00        43000.00       
+Cash            3        20194.00        24000.00       
+Bank            4        33636.00        34500.00       
+M-Pesa          3        24508.00        26500.00       
+================================================================================
+```
+
+### Completeness check — this is where D4 was found
+
+```
+Card 5 + Cash 3 + Bank 4 + M-Pesa 3 = 15
+```
+
+But the dataset has **18 valid transactions**. Three are missing — TX006,
+TX012 and TX018, the three Income records.
+
+Confirmed by calling both functions directly:
+
+```python
+>>> from main import load_transactions, validate_all
+>>> from main import count_payment_methods, calculate_payment_method_totals
+>>> valid, invalid = validate_all(load_transactions())
+>>> count_payment_methods(valid)                    # counts ALL valid records
+{'Card': 5, 'Cash': 5, 'Bank': 4, 'M-Pesa': 4}      # total 18
+>>> {k: v['count'] for k, v in calculate_payment_method_totals(valid).items()}
+{'Card': 5, 'Cash': 3, 'Bank': 4, 'M-Pesa': 3}      # total 15 — Expense only
+```
+
+Also note the Total Amount column sums to 114,098 — total *expenditure*, not
+total transaction value. See D4.
 
 ---
 
@@ -680,7 +753,7 @@ neither alone gives the full picture.
 | T002 | Invalid | Missing category rejected with reason | PASS |
 | T003 | Invalid | Negative amount rejected | PASS |
 | T004 | Boundary | Amount = budget limit (no warning) | PASS |
-| T005 | Boundary | Amount just over limit (warning raised) | PASS — display defect confirmed |
+| T005 | Boundary | Amount just over limit — overage reported as 0.01 | PASS (D1 fix verified) |
 | T006 | Search | Search by existing ID | PASS |
 | T007 | Search | Search for non-existent record | PASS |
 | T008 | Search | Search by category (multiple results) | PASS |
@@ -690,57 +763,39 @@ neither alone gives the full picture.
 | T012 | Invalid | Non-numeric amount at add time | PASS |
 | T013 | Normal | Summary calculations correct | PASS |
 | T014 | Normal | Budget warnings at both levels | PASS |
+| T015 | Normal | Payment summary counts and totals | FAIL — 15 of 18 counted (D4) |
 
-**Total tests:** 14
+**Total tests:** 15
 **Passed:** 14
-**Failed:** 0
-**Open defects:** 3 (D1, D2, D3 — all still present at commit `bfc98ce`)
+**Failed:** 1
+**Defects fixed since last revision:** 1 (D1)
+**Open findings:** 5 (D2, D3, D4, D5, D6)
 
 ---
 
 ## Defects and Observations
 
-All three were raised at revision 2 and **re-verified as still open** against
-commit `bfc98ce`.
+### D1 — Sub-unit amounts displayed as whole numbers — ✅ FIXED
 
-### D1 — Sub-unit amounts display as whole numbers (from T005) — OPEN
+**Raised** at revision 2 from T005. **Fixed** before revision 4.
 
-An amount of 5000.01 displays as `5000`, and an overage of 0.01 displays as `0`.
-Detection is correct; only the display rounds.
+An amount of 5000.01 displayed as `5000` and an overage of 0.01 as `0`, because
+of `.0f` format specifiers. Detection was always correct; only the display
+rounded.
 
-Re-verified at `bfc98ce`. The `.0f` specifiers remain on three lines of
-`main.py`:
+All `.0f` specifiers have been replaced with `.2f`. Verified: `grep -n "\.0f"
+main.py` now returns no matches, and T005 shows `5000.01 / 5000.00 / 0.01`.
 
-```
-241:  print(f"... {w['amount']:<12.0f} {w['limit']:<12.0f} {w['over']:<12.0f}")
-286:  print(f"... {w['spent']:<12.0f} {w['budget']:<12.0f} {w['over']:<12.0f}")
-342:  print(f"... {r['amount_kes']:<10.0f} | {r['budget_limit_kes']:<10.0f} ...")
-```
-
-**This defect now has a second manifestation.** Since the add-confirmation
-table calls `display_table()` (line 342), a user who enters `5000.01` is now
-shown `5000` in the confirmation echoed straight back at them — see T005
-evidence. The new feature made the existing defect more visible, not less.
-
-**Fix:** change the affected specifiers from `.0f` to `.2f`.
-
-**Severity:** Low → **Medium**, upgraded because it now misreports data at the
-point of entry, not only on a warnings report.
-
-*(The `0.010000000000218279` seen in T005 is normal floating-point
-representation error, not a program bug — 0.01 has no exact binary
-representation. `.2f` formatting resolves it for display.)*
+**No further action required.**
 
 ### D2 — `highest_spending_category()` is never called — OPEN
 
-The function is implemented and correct, but no menu option invokes it. The
-brief lists "Identify the highest-spending category" as a required coding task,
-so the requirement is currently unmet from the user's point of view.
+Raised at revision 2. Re-verified at `5fe78d6`: the name appears exactly once in
+`main.py`, on line 314, which is its own `def` statement. There are no call
+sites.
 
-Re-verified at `bfc98ce` — the name appears exactly once in `main.py`, on line
-296, which is its own `def` statement. There are no call sites.
-
-Verified by direct call:
+The brief lists "Identify the highest-spending category" as a required coding
+task, and the Algorithm document lists it under step 7. The function works:
 
 ```python
 >>> from main import load_transactions, validate_all, highest_spending_category
@@ -753,30 +808,99 @@ Verified by direct call:
 
 ```python
 category, amount = highest_spending_category(valid_records)
-print(f"Highest spending category: {category} ({amount})")
+print(f"{'Highest spending category':<30} {category} (KES {amount:.2f})")
 ```
 
 **Severity:** Medium — a required feature is unreachable from the user
-interface.
+interface. **This is the highest-value open item.**
 
 ### D3 — `TRX2000` is not part of the source dataset — OPEN
 
-`cap-data.csv` contains a 21st record, `TRX2000`, which does not appear in the
-`09_Expense_Tracker` worksheet of the supplied workbook. It appears to be test
-data left behind by the add-transaction feature and committed.
+Raised at revision 2. Re-verified at `5fe78d6` — still the last line of
+`cap-data.csv`. It does not appear in the `09_Expense_Tracker` worksheet and
+appears to be test data left behind by the add-transaction feature.
 
-Re-verified at `bfc98ce` — still the last line of the file. It is included in
-all totals in this document (it contributes 5,000 to Transport and one to the
-Card payment count).
+It contributes 5,000 to Transport and one to the Card count in every figure in
+this document.
 
-**Severity:** Low — but it should be removed before final submission so results
-are reproducible from the supplied dataset.
+**Severity:** Low — but it should be removed before submission so results are
+reproducible from the supplied dataset.
+
+### D4 — Payment summary omits Income transactions — NEW, OPEN
+
+Found by T015 at revision 4.
+
+`calculate_payment_method_totals()` filters on
+`if record["transaction_type"] == "Expense"`, so the payment summary counts 15
+of the 18 valid transactions. The three Income records (TX006, TX012, TX018)
+are silently excluded.
+
+The brief requires "Count transactions by payment method" with no restriction to
+expenses. The previous implementation (`count_payment_methods()`) counted all
+18 and matched the brief.
+
+The Total Amount column has the same issue — it sums to 114,098, which is total
+expenditure rather than total transaction value.
+
+**Suggested fix** — either remove the Expense filter, or keep it and label the
+table "EXPENSE PAYMENT METHOD SUMMARY" so the scope is explicit. The first is
+closer to the brief.
+
+**Severity:** Medium — a required calculation now covers a subset of the data
+without saying so.
+
+### D5 — Three functions are now unreachable — NEW, OPEN
+
+Automated call-site scan of `main.py` at `5fe78d6`:
+
+```
+check_category_budget_summary          called 0   <-- NEVER CALLED
+highest_spending_category              called 0   <-- NEVER CALLED
+count_payment_methods                  called 0   <-- NEVER CALLED
+```
+
+`check_category_budget_summary()` and `count_payment_methods()` were orphaned by
+the display refactor: their logic was re-implemented *inside*
+`display_category_budget_summary()` and `display_payment_summary()` rather than
+being called from them.
+
+This matters beyond tidiness. The original design separated calculation
+(returns data, prints nothing) from display (prints, calculates nothing), which
+is what allowed several tests in this document to verify results by calling a
+function directly — see T005 and T015. Where calculation now lives inside a
+display function, that verification route is closed and the only way to test is
+to read printed text.
+
+**Suggested fix** — have the display functions call the existing calculation
+functions instead of duplicating their logic, and delete whichever remain
+genuinely unused.
+
+**Severity:** Medium — duplicated logic can now drift out of step, and
+testability is reduced.
+
+### D6 — Algorithm document describes behaviour the code does not implement — NEW, OPEN
+
+The `Algorithm` file states:
+
+- Step 2: *"Standardize recognized alternatives such as `EXP` to `Expense` where a mapping is defined."* — the code does **not** do this. TX011 is rejected (T011).
+- Step 7: *"Identify the highest-spending category."* — implemented but never called (D2).
+
+The group should either implement both, or amend the Algorithm so it matches the
+program. A marker comparing the algorithm against the code will find these.
+
+Two smaller points on the same file: it is named `Algorithm` with **no
+extension**, so GitHub renders it as plain text rather than formatted Markdown —
+renaming it `Algorithm.md` fixes that. The brief's suggested structure also
+places it at `docs/algorithm.pdf`.
+
+**Severity:** Medium — the algorithm is worth 10 marks and is assessed against
+the implementation.
 
 ---
 
 ## Test Execution Notes
 
-- All tests were executed against `main.py` at commit `bfc98ce`, with
+- All tests were executed against `main.py` at commit `5fe78d6`, with
   `cap-data.csv` restored to its committed state between tests.
 - The program writes to `cap-data.csv` as soon as a transaction is added, so
   `git restore cap-data.csv` should be run after any manual testing to avoid
@@ -791,6 +915,7 @@ are reproducible from the supplied dataset.
 - T007 uses `TX404` rather than `TX999` so the suite is order-independent —
   T001 creates `TX999`, which would otherwise cause T007 to fail when the tests
   are run in sequence.
-- Table alignment was measured programmatically: `display_table()` renders at a
-  uniform 100 characters and `display_invalid_table()` at 117, with border,
-  header and data rows all matching. No alignment defect.
+- Figures are cross-checked between tests wherever possible: T008's Transport
+  rows sum to T013's Transport total, which matches T014's Transport row; T014's
+  Spent column sums to T013's Total Expenditure; T015's counts are checked
+  against the valid-record count. These cross-checks are what surfaced D4.
