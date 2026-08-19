@@ -311,31 +311,6 @@ def display_all_budget_warnings(valid_records):
     display_category_budget_summary(valid_records)
 
 
-def highest_spending_category(valid_records):
-    _, _, _, category_totals = calculate_summary(valid_records)
-    if not category_totals:
-        return None, 0
-
-    highest_category = None
-    highest_amount = None
-    for category, total in category_totals.items():
-        if highest_amount is None or total > highest_amount:
-            highest_amount = total
-            highest_category = category
-
-    return highest_category, highest_amount
-
-
-def count_payment_methods(valid_records):
-    counts = {}
-    for record in valid_records:
-        method = record["payment_method"]
-        if method not in counts:
-            counts[method] = 0
-        counts[method] = counts[method] + 1
-    return counts
-
-
 def calculate_payment_method_totals(valid_records):
     """Calculate totals per payment method (count, amount, budget)."""
     method_data = {}
