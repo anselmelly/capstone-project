@@ -304,18 +304,17 @@ def calculate_payment_method_totals(valid_records):
     method_data = {}
     
     for record in valid_records:
-        if record["transaction_type"] == "Expense":
-            method = record["payment_method"]
-            if method not in method_data:
-                method_data[method] = {
-                    "count": 0,
-                    "amount": 0,
-                    "budget": 0
-                }
-            method_data[method]["count"] += 1
-            method_data[method]["amount"] += record["amount_kes"]
-            method_data[method]["budget"] += record["budget_limit_kes"]
-    
+        method = record["payment_method"]
+        if method not in method_data:
+            method_data[method] = {
+                "count": 0,
+                "amount": 0,
+                "budget": 0
+            }
+        method_data[method]["count"] += 1
+        method_data[method]["amount"] += record["amount_kes"]
+        method_data[method]["budget"] += record["budget_limit_kes"]
+
     return method_data
 
 
