@@ -247,10 +247,10 @@ def display_individual_warnings(valid_records):
 
 
 def check_category_budget_summary(valid_records):
-    """Check category totals vs. sum of budget limits per category."""
+    """Calculate spent, budget, and over-budget status per expense category."""
     category_totals = {}
     category_budgets = {}
-    
+
     for record in valid_records:
         if record["transaction_type"] == "Expense":
             cat = record["category"]
@@ -259,50 +259,38 @@ def check_category_budget_summary(valid_records):
                 category_budgets[cat] = 0
             category_totals[cat] += record["amount_kes"]
             category_budgets[cat] += record["budget_limit_kes"]
-    
-    warnings = []
+
+    summary = []
     for category, spent in category_totals.items():
-        limit = category_budgets[category]
-        if spent > limit:
-            warnings.append({
-                "category": category,
-                "spent": spent,
-                "budget": limit,
-                "over": spent - limit
-            })
-    
-    return warnings
+        budget = category_budgets[category]
+        summary.append({
+            "category": category,
+            "spent": spent,
+            "budget": budget,
+            "over": spent - budget,
+            "status": "OVER" if spent > budget else "OK"
+        })
+
+    return summary
 
 
 def display_category_budget_summary(valid_records):
     """Display category-level budget summary (all categories)."""
-    category_totals = {}
-    category_budgets = {}
-    
-    for record in valid_records:
-        if record["transaction_type"] == "Expense":
-            cat = record["category"]
-            if cat not in category_totals:
-                category_totals[cat] = 0
-                category_budgets[cat] = 0
-            category_totals[cat] += record["amount_kes"]
-            category_budgets[cat] += record["budget_limit_kes"]
-    
-    if not category_totals:
+    summary = check_category_budget_summary(valid_records)
+
+    if not summary:
         print("No expense categories to display.")
         return
-    
+
     print("\n" + "=" * 80)
     print("CATEGORY BUDGET SUMMARY (WITH WARNINGS)")
     print("=" * 80)
     print(f"{'Category':<15} {'Spent':<12} {'Budget':<12} {'Status':<15}")
     print("-" * 80)
-    
-    for category, spent in category_totals.items():
-        budget = category_budgets[category]
-        status = "OVER" if spent > budget else "OK"
-        print(f"{category:<15} {spent:<12.2f} {budget:<12.2f} {status:<15}")
-    
+
+    for row in summary:
+        print(f"{row['category']:<15} {row['spent']:<12.2f} {row['budget']:<12.2f} {row['status']:<15}")
+
     print("=" * 80 + "\n")
 
 def display_all_budget_warnings(valid_records):
