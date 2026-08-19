@@ -8,7 +8,7 @@
 ### 2. Define a function to validate transactions
 - Check that the transaction type is `Income` or `Expense`.
 - Check that the amount is numeric and greater than zero.
-- Check that the category is provided.
+- Check that the category is provided for `Expense` transactions.
 - Check that the budget limit is not negative.
 
 ### 3. Define a function to view transactions
@@ -20,7 +20,7 @@
 - Add the new transaction to the transaction list.
 
 ### 5. Define a function to search for a transaction
-- Ask the user for a transaction ID.
+- Ask the user for a transaction ID or category.
 - Search the transaction list.
 - Display the matching transaction or indicate that it was not found.
 
@@ -31,6 +31,7 @@
 - Calculate category totals.
 
 ### 7. Define a function to identify budget warnings
+- Compare each transaction's amount with its own budget limit and flag it when exceeded.
 - Calculate expenditure by category.
 - Compare category expenditure with the relevant budget.
 - Display a warning when expenditure exceeds the budget.
