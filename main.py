@@ -192,6 +192,21 @@ def calculate_summary(valid_records):
     return total_income, total_expenditure, balance, category_totals
 
 
+def highest_spending_category(valid_records):
+    _, _, _, category_totals = calculate_summary(valid_records)
+    if not category_totals:
+        return None, 0
+
+    highest_category = None
+    highest_amount = None
+    for category, total in category_totals.items():
+        if highest_amount is None or total > highest_amount:
+            highest_amount = total
+            highest_category = category
+
+    return highest_category, highest_amount
+
+
 def display_summary(valid_records):
     total_income, total_expenditure, balance, category_totals = calculate_summary(valid_records)
 
@@ -210,9 +225,13 @@ def display_summary(valid_records):
     
     for category, total in category_totals.items():
         print(f"{category:<30} KES {total:>18.2f}")
-    
+
+    category, amount = highest_spending_category(valid_records)
+    if category is not None:
+        print(f"\n{'Highest spending category':<30} {category} (KES {amount:.2f})")
+
     print("=" * 60 + "\n")
-    
+
 def check_individual_budget_warnings(valid_records):
     """Check if individual transactions exceed their own budget limits."""
     warnings = []

@@ -29,6 +29,7 @@
 - Calculate total expenditure.
 - Calculate the balance.
 - Calculate category totals.
+- Identify the highest-spending category.
 
 ### 7. Define a function to identify budget warnings
 - Compare each transaction's amount with its own budget limit and flag it when exceeded.
