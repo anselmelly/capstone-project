@@ -6,7 +6,6 @@
 - Convert the amount and budget-limit fields to numeric values.
 
 ### 2. Define a function to validate transactions
-- Standardize recognized alternatives such as `EXP` to `Expense` where a mapping is defined.
 - Check that the transaction type is `Income` or `Expense`.
 - Check that the amount is numeric and greater than zero.
 - Check that the category is provided.
@@ -35,7 +34,6 @@
 - Calculate expenditure by category.
 - Compare category expenditure with the relevant budget.
 - Display a warning when expenditure exceeds the budget.
-- Identify the highest-spending category.
 
 ### 8. Define a function to display invalid transactions
 - Check each transaction using the validation function.
